@@ -17,7 +17,7 @@ struct WindowOptions {
     std::string title;
 };
 
-enum WindowApiProvider{
+enum class WindowBackend{
     GLFW,
     SDL,
 };

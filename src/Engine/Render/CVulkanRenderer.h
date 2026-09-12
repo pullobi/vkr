@@ -1,5 +1,5 @@
-#include "Engine/Renderer/gui/imgui_internal.h"
-#include "IRenderApi.h"
+#include "Engine/Render/gui/imgui_internal.h"
+#include "Api/IRenderApi.h"
 #include <cstdint>
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
@@ -9,10 +9,10 @@
 #include <vulkan/vulkan_core.h>
 #include <fstream>
 #include "Logger/Logger.h"
-#include "CRenderTypes.h"
-#include "Engine/Renderer/CApiTypes.h"
-#include "Engine/Renderer/IWindowApi.h"
-#include "Engine/Renderer/gui/imgui.h"
+#include "Types/CRenderTypes.h"
+#include "Api/CApiTypes.h"
+#include "Api/IWindowApi.h"
+#include "Engine/Render/gui/imgui.h"
 #include "Logger/Logger.h"
 #include <cstdint>
 #include <glm/glm.hpp>
@@ -39,7 +39,7 @@ public:
 
     void RenderBegin() override;
 
-    void Draw(const Vertex* vertices, uint32_t nVerts, const uint32_t* indices, uint32_t nIndices);
+    void Draw(const Vertex* vertices, uint32_t nVerts, const uint32_t* indices, uint32_t nIndices) override;
 
     void ImGuiNewFrame() override;
     void ImGuiRender() override;
@@ -50,9 +50,9 @@ public:
     RenderBackend getRenderBackend() override;
 
 
-    CameraUBO m_CameraUBO                   {};
-    VkExtent2D getSwapchainExtent();
-    void UpdateCameraBuffer();
+    // CameraUBO m_CameraUBO                   {};
+    VkExtent2D getSwapchainExtent() override;
+    void UpdateCameraBuffer() override;
 private:
     VkInstance m_VkInstance                 = VK_NULL_HANDLE;
     VkPhysicalDevice m_VkPhysicalDevice     = VK_NULL_HANDLE;
@@ -135,22 +135,3 @@ private:
     VkShaderModule CreateShaderModule(const std::vector<char>& code);
     uint32_t FindMemoryType(uint32_t typeFilter,VkMemoryPropertyFlags properties);
 };
-
-inline std::vector<char> ReadFile(const std::string& filename)
-{
-    std::ifstream file(
-        filename,
-        std::ios::ate | std::ios::binary
-    );
-
-    LOGGER_ASSERT(file.is_open(), "Failed to open shader file");
-
-    size_t fileSize = static_cast<size_t>(file.tellg());
-
-    std::vector<char> buffer(fileSize);
-
-    file.seekg(0);
-    file.read(buffer.data(), fileSize);
-
-    return buffer;
-}

@@ -1,7 +1,16 @@
 #include "CVulkanRenderer.h"
+#include "Engine/Render/Types/CRenderTypes.h"
+#include "Engine/Render/gui/imgui_impl_glfw.h"
+#include "Engine/Render/gui/imgui_impl_vulkan.h"
 #include <glm/ext/vector_float2.hpp>
 #include <set>
 #include <vulkan/vulkan_core.h>
+
+static CameraUBO m_CameraUBO {};
+
+CameraUBO& GetCameraUBO(){
+    return m_CameraUBO;
+}
 
 void CVulkanRenderer::Init(IWindowApi* window)
 {
@@ -40,7 +49,7 @@ void CVulkanRenderer::Init(IWindowApi* window)
     // Shaders
     // -----------------------
 
-    auto shaderCode = ReadFile(
+    auto shaderCode = ReadFileVk(
         "assets/shaders/tri.spv"
     );
     m_VkShaderModule =
@@ -315,7 +324,7 @@ void CVulkanRenderer::RenderEnd()
         "m_VkSwapchain is VK_NULL_HANDLE"
     );
     result = vkQueuePresentKHR(
-        m_PresentQueue,
+        m_PresentQueue, 
         &presentInfo
     );
 
@@ -335,7 +344,7 @@ void CVulkanRenderer::Shutdown()
     }
 
     ImGui_ImplVulkan_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
+    p_Window->ImGuiImplWindowShutdown();
     ImGui::DestroyContext(m_ImGuiContext);
     
     // Synchronization
@@ -1188,10 +1197,33 @@ void CVulkanRenderer::CreateFramebuffers()
 VkShaderModule CVulkanRenderer::CreateShaderModule(
     const std::vector<char>& code)
 {
+    LOGGER_ASSERT(
+        !code.empty(),
+        "SPIR-V file is empty"
+    );
+
+    LOGGER_ASSERT(
+        code.size() % 4 == 0,
+        "SPIR-V file size is not divisible by 4"
+    );
+
+    LOGGER_ASSERT(
+        code.size() >= 4,
+        "SPIR-V file is too small"
+    );
+
+    const uint32_t* words =
+        reinterpret_cast<const uint32_t*>(code.data());
+
+    LOGGER_ASSERT(
+        words[0] == 0x07230203,
+        "Invalid SPIR-V magic number"
+    );
+
     VkShaderModuleCreateInfo shaderCI{
         .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
         .codeSize = code.size(),
-        .pCode = reinterpret_cast<const uint32_t*>(code.data())
+        .pCode = words
     };
 
     VkShaderModule shaderModule = VK_NULL_HANDLE;
@@ -1205,6 +1237,7 @@ VkShaderModule CVulkanRenderer::CreateShaderModule(
 
     return shaderModule;
 }
+
 
 void CVulkanRenderer::CreateGraphicsPipeline()
 {

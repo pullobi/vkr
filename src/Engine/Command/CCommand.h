@@ -10,7 +10,6 @@ enum class CommandResult
 {
     Success,
     Failed,
-
     SyntaxError,
     NoCommand,
 };

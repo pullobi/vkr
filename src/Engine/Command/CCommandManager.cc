@@ -3,7 +3,7 @@
 
 #include <cctype>
 #include <utility>
-
+#include <sstream>
 
 static CCommandManager g_CommandManager;
 
@@ -61,137 +61,71 @@ CommandResult CCommandManager::ExecuteFromString(
     std::string commandPrompt
 )
 {
-    // ---------------------------------------------------------
-    // Find command name
-    // ---------------------------------------------------------
+    std::istringstream stream(commandPrompt);
 
-    
-    size_t openParen = commandPrompt.find('(');
-
-    if (openParen == std::string::npos)
-        return CommandResult::Failed;
-
-    std::string commandName =
-        commandPrompt.substr(0, openParen);
-
-    // Remove whitespace from command name
-    while (!commandName.empty() &&
-           std::isspace(commandName.back()))
-    {
-        commandName.pop_back();
-    }
+    std::string commandName;
+    stream >> commandName;
 
     if (commandName.empty())
         return CommandResult::NoCommand;
-
-    // ---------------------------------------------------------
-    // Find command
-    // ---------------------------------------------------------
 
     CCommand* command = FindCommand(commandName);
 
     if (!command)
         return CommandResult::NoCommand;
 
-    // ---------------------------------------------------------
-    // Parse arguments
-    // ---------------------------------------------------------
-
     std::vector<std::string> args;
+    std::string arg;
 
-    size_t i = openParen + 1;
-
-    while (i < commandPrompt.size())
-    {
-        // Skip whitespace
-        while (
-            i < commandPrompt.size() &&
-            std::isspace(commandPrompt[i])
-        )
-        {
-            i++;
-        }
-
-        // End of arguments
-        if (
-            i >= commandPrompt.size() ||
-            commandPrompt[i] == ')'
-        )
-        {
-            break;
-        }
-
-        // -----------------------------------------------------
-        // Expect quoted argument
-        // -----------------------------------------------------
-
-        if (commandPrompt[i] != '"')
-            return CommandResult::SyntaxError;
-
-        i++;
-
-        std::string argument;
-
-        while (i < commandPrompt.size())
-        {
-            // Closing quote
-            if (commandPrompt[i] == '"')
-            {
-                i++;
-                break;
-            }
-
-            argument += commandPrompt[i];
-            i++;
-        }
-
-        args.push_back(std::move(argument));
-
-        // -----------------------------------------------------
-        // Skip whitespace
-        // -----------------------------------------------------
-
-        while (
-            i < commandPrompt.size() &&
-            std::isspace(commandPrompt[i])
-        )
-        {
-            i++;
-        }
-
-        // -----------------------------------------------------
-        // Next argument
-        // -----------------------------------------------------
-
-        if (
-            i < commandPrompt.size() &&
-            commandPrompt[i] == ','
-        )
-        {
-            i++;
-            continue;
-        }
-
-        // -----------------------------------------------------
-        // End
-        // -----------------------------------------------------
-
-        if (
-            i < commandPrompt.size() &&
-            commandPrompt[i] == ')'
-        )
-        {
-            break;
-        }
-
-        // Invalid syntax
-        return CommandResult::SyntaxError;
-    }
-
-    // ---------------------------------------------------------
-    // Execute
-    // ---------------------------------------------------------
+    while (stream >> arg)
+        args.push_back(arg);
 
     return command->Call(args);
-
 }
+
+void CCommandManager::StartJob(std::string callerCmd, Job jobFunc){
+    jobs[callerCmd].push_back(jobFunc);
+}
+void CCommandManager::StopJob(std::string callerCmd, int id){
+    for (size_t i = 0; i < jobs.size();)
+    {
+        if (!jobs[callerCmd][i].shouldKeepRunning)
+        {
+            jobs[callerCmd].erase(jobs[callerCmd].begin() + i);
+        }
+        else
+        {
+            jobs[callerCmd][i].job(jobs[callerCmd][i].shouldKeepRunning);
+            ++i;
+        }
+    }
+};
+
+void CCommandManager::TickJob()
+{
+    for (auto& [command, commandJobs] : jobs)
+    {
+        for (auto it = commandJobs.begin(); it != commandJobs.end();)
+        {
+            Job& job = *it;
+
+            if (job.shouldKeepRunning)
+            {
+                job.job(job.shouldKeepRunning);
+            }
+
+            if (!job.shouldKeepRunning)
+            {
+                it = commandJobs.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
+        }
+    }
+}
+
+/*
+StartJob(self, [])
+*/

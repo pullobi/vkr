@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
-project(vktest LANGUAGES C CXX)
+project(vkr LANGUAGES C CXX)
 
 set(CMAKE_C_STANDARD 23)
 set(CMAKE_CXX_STANDARD 20)
@@ -10,24 +10,196 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 
-# -----------------------
+# ============================================================
+# Engine Configuration
+# ============================================================
+
+set(ENGINE_WINDOWING "glfw" CACHE STRING
+    "Windowing backend (glfw, sdl)"
+)
+
+set(ENGINE_RENDERING "vulkan" CACHE STRING
+    "Rendering backend (vulkan, opengl)"
+)
+
+string(TOLOWER "${ENGINE_WINDOWING}" ENGINE_WINDOWING)
+string(TOLOWER "${ENGINE_RENDERING}" ENGINE_RENDERING)
+
+
+# ============================================================
 # Dependencies
-# -----------------------
+# ============================================================
+
+# ------------------------------------------------------------
+# Windowing
+# ------------------------------------------------------------
+
+find_package(glfw3 CONFIG REQUIRED)
+find_package(SDL3 CONFIG REQUIRED)
+
+
+# ------------------------------------------------------------
+# Rendering
+# ------------------------------------------------------------
 
 find_package(Vulkan REQUIRED)
-find_package(glfw3 CONFIG REQUIRED)
+
+if(APPLE)
+
+    find_library(
+        OPENGL_FRAMEWORK
+        OpenGL
+        REQUIRED
+    )
+
+elseif(WIN32)
+
+    # OpenGL is provided by opengl32.dll.
+
+elseif(UNIX)
+
+    find_package(OpenGL REQUIRED)
+
+endif()
 
 
-# -----------------------
+# ============================================================
+# Source Files
+# ============================================================
+
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
+    src/*.c
+    src/*.cc
+    src/*.cpp
+    src/*.cxx
+    src/*.c++
+)
+
+file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS
+    src/*.h
+    src/*.hpp
+)
+
+
+# ============================================================
+# Executable
+# ============================================================
+
+add_executable(${PROJECT_NAME}
+    ${SOURCES}
+    ${HEADERS}
+)
+
+
+# ============================================================
+# Include Directories
+# ============================================================
+
+target_include_directories(${PROJECT_NAME}
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+
+# ============================================================
+# Windowing Backend
+# ============================================================
+
+if(ENGINE_WINDOWING STREQUAL "glfw")
+
+    target_compile_definitions(${PROJECT_NAME}
+        PRIVATE
+            ENGINE_WINDOW_USE_GLFW
+    )
+
+elseif(ENGINE_WINDOWING STREQUAL "sdl")
+
+    target_compile_definitions(${PROJECT_NAME}
+        PRIVATE
+            ENGINE_WINDOW_USE_SDL
+    )
+
+else()
+
+    message(FATAL_ERROR
+        "Unknown windowing backend: ${ENGINE_WINDOWING}"
+    )
+
+endif()
+
+
+# ============================================================
+# Rendering Backend
+# ============================================================
+
+if(ENGINE_RENDERING STREQUAL "vulkan")
+
+    target_compile_definitions(${PROJECT_NAME}
+        PRIVATE
+            ENGINE_RENDER_USE_VULKAN
+    )
+
+elseif(ENGINE_RENDERING STREQUAL "opengl")
+
+    target_compile_definitions(${PROJECT_NAME}
+        PRIVATE
+            ENGINE_RENDER_USE_OPENGL
+    )
+
+else()
+
+    message(FATAL_ERROR
+        "Unknown rendering backend: ${ENGINE_RENDERING}"
+    )
+
+endif()
+
+
+# ============================================================
+# GLAD
+# ============================================================
+
+set(GLAD_DIR
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/glad
+)
+
+set(GLAD_DEST
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Engine/Render/glad
+)
+
+file(COPY
+    ${GLAD_DIR}/
+    DESTINATION ${GLAD_DEST}
+)
+
+file(GLOB_RECURSE GLAD_SOURCES CONFIGURE_DEPENDS
+    ${GLAD_DEST}/*.c
+    ${GLAD_DEST}/*.cc
+    ${GLAD_DEST}/*.cpp
+    ${GLAD_DEST}/*.cxx
+)
+
+target_sources(${PROJECT_NAME}
+    PRIVATE
+        ${GLAD_SOURCES}
+)
+
+target_include_directories(${PROJECT_NAME}
+    PRIVATE
+        ${GLAD_DEST}/include
+)
+
+
+# ============================================================
 # Dear ImGui
-# -----------------------
+# ============================================================
 
 set(IMGUI_DIR
-    ${CMAKE_CURRENT_SOURCE_DIR}/imgui
+    ${CMAKE_CURRENT_SOURCE_DIR}/third_party/imgui
 )
 
 set(IMGUI_DEST
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/Engine/Renderer/gui
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Engine/Render/gui
 )
 
 set(IMGUI_FILES
@@ -44,13 +216,22 @@ set(IMGUI_FILES
 
     backends/imgui_impl_glfw.cpp
     backends/imgui_impl_glfw.h
+
+    backends/imgui_impl_sdl3.cpp
+    backends/imgui_impl_sdl3.h
+
+    backends/imgui_impl_opengl3.cpp
+    backends/imgui_impl_opengl3.h
+    backends/imgui_impl_opengl3_loader.h
+    
     backends/imgui_impl_vulkan.cpp
     backends/imgui_impl_vulkan.h
 )
 
 foreach(IMGUI_FILE ${IMGUI_FILES})
 
-    get_filename_component(IMGUI_FILE_NAME
+    get_filename_component(
+        IMGUI_FILE_NAME
         ${IMGUI_FILE}
         NAME
     )
@@ -64,88 +245,188 @@ foreach(IMGUI_FILE ${IMGUI_FILES})
 endforeach()
 
 
-# -----------------------
-# Source files
-# -----------------------
+# ============================================================
+# ImGui Configuration
+# ============================================================
 
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS
-    src/*.c
-    src/*.cc
-    src/*.cpp
-    src/*.cxx
-    src/*.c++
-)
-
-file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS
-    src/*.h
-    src/*.hpp
-)
-
-add_executable(${PROJECT_NAME}
-    ${SOURCES}
-    ${HEADERS}
-)
-
-target_include_directories(${PROJECT_NAME}
+target_compile_definitions(${PROJECT_NAME}
     PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        IMGUI_IMPL_OPENGL_LOADER_GLAD
 )
+
+
+# ============================================================
+# Link Libraries
+# ============================================================
 
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
-        Vulkan::Vulkan
         glfw
+        SDL3::SDL3
+        Vulkan::Vulkan
 )
 
 
-# -----------------------
-# Shaders
-# -----------------------
+# ============================================================
+# OpenGL
+# ============================================================
+
+if(APPLE)
+
+    target_link_libraries(${PROJECT_NAME}
+        PRIVATE
+            ${OPENGL_FRAMEWORK}
+    )
+
+elseif(WIN32)
+
+    target_link_libraries(${PROJECT_NAME}
+        PRIVATE
+            opengl32
+
+    )
+
+elseif(UNIX)
+
+    target_link_libraries(${PROJECT_NAME}
+        PRIVATE
+            OpenGL::GL
+    )
+
+endif()
+
+
+# ============================================================
+# Compile Shaders
+# ============================================================
 
 find_program(SLANGC slangc REQUIRED)
+find_program(SPIRV_CROSS spirv-cross REQUIRED)
 
-file(GLOB_RECURSE SHADERS CONFIGURE_DEPENDS
-    assets/shaders/*.slang
+set(SHADER_DIR
+    ${CMAKE_CURRENT_SOURCE_DIR}/assets/shaders
 )
 
 set(SHADER_OUTPUT_DIR
-    ${CMAKE_BINARY_DIR}/assets/shaders
+    ${CMAKE_CURRENT_BINARY_DIR}/assets/shaders
 )
+
+file(GLOB_RECURSE SHADERS CONFIGURE_DEPENDS
+    "${SHADER_DIR}/*.slang"
+)
+
+set(COMPILED_SHADERS)
 
 foreach(SHADER ${SHADERS})
 
-    get_filename_component(SHADER_NAME ${SHADER} NAME_WE)
+    get_filename_component(
+        SHADER_NAME
+        "${SHADER}"
+        NAME_WE
+    )
+
+    # --------------------------------------------------------
+    # One SPIR-V file
+    # --------------------------------------------------------
+
+    set(SPV_OUTPUT
+        "${SHADER_OUTPUT_DIR}/${SHADER_NAME}.spv"
+    )
 
     add_custom_command(
         OUTPUT
-            ${SHADER_OUTPUT_DIR}/${SHADER_NAME}.spv
+            "${SPV_OUTPUT}"
 
         COMMAND
-            ${CMAKE_COMMAND} -E make_directory
-            ${SHADER_OUTPUT_DIR}
+            ${CMAKE_COMMAND}
+            -E
+            make_directory
+            "${SHADER_OUTPUT_DIR}"
 
         COMMAND
-            ${SLANGC}
-            ${SHADER}
+            "${SLANGC}"
+            "${SHADER}"
+            -matrix-layout-column-major
             -target spirv
-            -o
-            ${SHADER_OUTPUT_DIR}/${SHADER_NAME}.spv
+            -entry vertexMain
+            -entry fragmentMain
+            -o "${SPV_OUTPUT}"
 
         DEPENDS
-            ${SHADER}
+            "${SHADER}"
 
         COMMENT
-            "Compiling Slang shader ${SHADER_NAME}"
+            "Compiling Slang shader: ${SHADER_NAME} -> SPIR-V"
     )
 
-    list(APPEND SPV_SHADERS
-        ${SHADER_OUTPUT_DIR}/${SHADER_NAME}.spv
+    list(APPEND
+        COMPILED_SHADERS
+        "${SPV_OUTPUT}"
     )
+
+    # --------------------------------------------------------
+    # SPIR-V -> GLSL
+    # --------------------------------------------------------
+
+    set(STAGES
+        vertexMain
+        fragmentMain
+    )
+
+    set(STAGE_EXTS
+        vert
+        frag
+    )
+
+    list(LENGTH STAGES STAGE_COUNT)
+    math(EXPR MAX_IDX "${STAGE_COUNT} - 1")
+
+    foreach(IDX RANGE ${MAX_IDX})
+
+        list(GET STAGES ${IDX} ENTRY_POINT)
+        list(GET STAGE_EXTS ${IDX} STAGE_EXT)
+
+        set(GLSL_OUTPUT
+            "${SHADER_OUTPUT_DIR}/${SHADER_NAME}.${STAGE_EXT}.glsl"
+        )
+
+        add_custom_command(
+            OUTPUT
+                "${GLSL_OUTPUT}"
+
+            COMMAND
+                "${SPIRV_CROSS}"
+                --version 410
+                --entry "${ENTRY_POINT}"
+                "${SPV_OUTPUT}"
+                --output "${GLSL_OUTPUT}"
+
+            DEPENDS
+                "${SPV_OUTPUT}"
+
+            COMMENT
+                "Transpiling ${SHADER_NAME} [${ENTRY_POINT}] -> GLSL 410"
+        )
+
+        list(APPEND
+            COMPILED_SHADERS
+            "${GLSL_OUTPUT}"
+        )
+
+    endforeach()
 
 endforeach()
 
+
+# ------------------------------------------------------------
+# Shader target
+# ------------------------------------------------------------
+
 add_custom_target(shaders ALL
-    DEPENDS ${SPV_SHADERS}
+    DEPENDS
+        ${COMPILED_SHADERS}
 )
 
-add_dependencies(${PROJECT_NAME} shaders)
+add_dependencies(${PROJECT_NAME}
+    shaders
+)
