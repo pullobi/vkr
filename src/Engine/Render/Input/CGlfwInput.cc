@@ -2,9 +2,28 @@
 #include "../Types/CInputTypes.h"
 #include "Engine/Command/CCommandManager.h"
 #include "Engine/Render/Api/IInputApi.h"
+#include "Engine/Render/Api/IRenderApi.h"
+#include "Engine/Render/Types/CRenderTypes.h"
 #include "Engine/Render/gui/imgui_impl_glfw.h"
+#include "Engine/const.h"
+#include "Logger/Logger.h"
+#include <cmath>
 
 
+// Gets used by Commands implementation to lock/unlock cursor
+
+static bool g_mouseShouldLock = false;
+
+
+void SetGlobalMouseShouldLock(bool v){
+    g_mouseShouldLock = v;
+}; 
+bool GetGlobalMouseShouldLock(){
+    return g_mouseShouldLock;
+}
+void ToggleGlobalMouseShouldLock(){
+    g_mouseShouldLock = !g_mouseShouldLock;
+}
 
 GlfwInputApi::GlfwInputApi(GLFWwindow* window)
     : m_Window(window)
@@ -62,6 +81,9 @@ void GlfwInputApi::Update()
             PressType::Held
         );
     }
+
+    mouseLocked = g_mouseShouldLock;
+
 }
 
 void GlfwInputApi::BindKey(
@@ -70,6 +92,9 @@ void GlfwInputApi::BindKey(
     const std::string& command
 )
 {
+    if (type == PressType::Released){
+        // Logger().warn("BindKey({}, {}, \"{}\")", (int)key, (int)type, command);
+    }
     m_KeyBindings[
         Binding{ key, type }
     ] = command;
@@ -121,7 +146,6 @@ void GlfwInputApi::KeyCallback(
     if (!input->mouseLocked)
     {
         ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
-        return;
     }
 
     const Key engineKey =
@@ -129,7 +153,7 @@ void GlfwInputApi::KeyCallback(
 
     if (engineKey == Key::Unknown)
         return;
-
+    // Logger().info("Recv key {}", (int)engineKey);
     if (action == GLFW_PRESS)
     {
         input->m_HeldKeys.insert(engineKey);
@@ -141,6 +165,7 @@ void GlfwInputApi::KeyCallback(
     }
     else if (action == GLFW_RELEASE)
     {
+        // Logger().warn("Key released: {}", key);
         input->m_HeldKeys.erase(engineKey);
 
         input->ExecuteReleaseCommand(
@@ -165,41 +190,59 @@ void GlfwInputApi::ExecuteKeyBinding(
     if (it == m_KeyBindings.end())
         return;
 
+
     GetCommandManager().ExecuteFromString(
         it->second
     );
 }
-
 void GlfwInputApi::ExecuteReleaseCommand(Key key)
 {
-    const Binding binding{
+    Binding binding{
         key,
         PressType::Pressed
     };
 
-    const auto it =
-        m_KeyBindings.find(binding);
+    auto it = m_KeyBindings.find(binding);
 
+    // No Pressed binding? Try Released.
     if (it == m_KeyBindings.end())
-        return;
+    {
+        binding.type = PressType::Released;
+        it = m_KeyBindings.find(binding);
+    }
 
-    const std::string& command =
-        it->second;
+    // Neither Pressed nor Released exists.
+    if (it == m_KeyBindings.end())
+    {
+        // Logger().error("no such binding {}", (int)key);
+        return;
+    }
+
+    const std::string& command = it->second;
 
     if (command.empty())
+    {
+        // Logger().error("no such command");
         return;
+    }
 
-    if (command[0] != '+')
-        return;
+    if (command[0] == '+')
+    {
+        std::string releaseCommand = command;
+        releaseCommand[0] = '-';
 
-    std::string releaseCommand = command;
+        // Logger().warn(
+        //     "Executing release command: {}",
+        //     releaseCommand
+        // );
 
-    releaseCommand[0] = '-';
-
-    GetCommandManager().ExecuteFromString(
-        releaseCommand
-    );
-}   
+        GetCommandManager().ExecuteFromString(releaseCommand);
+    }
+    else
+    {
+        GetCommandManager().ExecuteFromString(command);
+    }
+}
 
 float GlfwInputApi::GetTime(){
     return glfwGetTime();
@@ -266,6 +309,7 @@ Key GlfwInputApi::FromGlfwKey(int key)
         case GLFW_KEY_RIGHT_ALT:     return Key::RightAlt;
 
         default:
+            // Logger().error("Unkwnown key: {}", key);
             return Key::Unknown;
     }
 }
@@ -321,9 +365,51 @@ void GlfwInputApi::CursorPosCallback(
     input->m_MouseX = x;
     input->m_MouseY = y;
 
-    if (input->mouseLocked){
-        ImGui_ImplGlfw_CursorPosCallback(window, x, y);
+    // Set mouse lock state.
+
+
+
+    if (input->mouseLocked)
+    {
+        glfwSetInputMode(
+            window,
+            GLFW_CURSOR,
+            GLFW_CURSOR_DISABLED
+        );
+        // int w, h;
+        // glfwGetWindowSize(input->m_Window, &w, &h);
+        // glfwSetCursorPos(input->m_Window, (double)w/2,(double)h/2);
     }
+    else
+    {
+        glfwSetInputMode(
+            window,
+            GLFW_CURSOR,
+            GLFW_CURSOR_NORMAL
+        );
+
+    
+    }
+
+    if (!input->mouseLocked){
+
+        // if the mouse ISN'T locked we can pass it to ImGui's implementation
+        ImGui_ImplGlfw_CursorPosCallback(window, x, y);
+    } else {
+        // if it IS locked we update our CameraUBO with pitch and yaw
+        CameraUBO& cameraUBO = GetCameraUBO();
+        glm::vec2 rot = cameraUBO.GetRot();
+        // {yaw, pitch}
+        rot.y += -1*input->m_MouseDeltaY * DEFAULT_SENSITIVITY;
+        rot.y = glm::clamp(rot.y, -89.999f, 89.999f);
+
+        rot.x += (input->m_MouseDeltaX * DEFAULT_SENSITIVITY );
+
+        rot.x = std::fmod(rot.x, 360.0f); // Wrap around
+        GetCameraUBO().SetRot(rot);
+        
+    }
+    
 }
 
 void GlfwInputApi::ScrollCallback(

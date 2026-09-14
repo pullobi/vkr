@@ -295,7 +295,6 @@ elseif(UNIX)
 
 endif()
 
-
 # ============================================================
 # Compile Shaders
 # ============================================================
@@ -365,55 +364,152 @@ foreach(SHADER ${SHADERS})
     )
 
     # --------------------------------------------------------
-    # SPIR-V -> GLSL
+    # Existing GLSL?
     # --------------------------------------------------------
 
-    set(STAGES
-        vertexMain
-        fragmentMain
+    set(EXISTING_VERT_GLSL
+        "${SHADER_DIR}/${SHADER_NAME}.vert.glsl"
     )
 
-    set(STAGE_EXTS
-        vert
-        frag
+    set(EXISTING_FRAG_GLSL
+        "${SHADER_DIR}/${SHADER_NAME}.frag.glsl"
     )
 
-    list(LENGTH STAGES STAGE_COUNT)
-    math(EXPR MAX_IDX "${STAGE_COUNT} - 1")
+    if(EXISTS "${EXISTING_VERT_GLSL}" AND
+       EXISTS "${EXISTING_FRAG_GLSL}")
 
-    foreach(IDX RANGE ${MAX_IDX})
+        message(STATUS
+            "Using existing GLSL for ${SHADER_NAME}"
+        )
 
-        list(GET STAGES ${IDX} ENTRY_POINT)
-        list(GET STAGE_EXTS ${IDX} STAGE_EXT)
+        # ----------------------------------------------------
+        # Copy existing vertex GLSL
+        # ----------------------------------------------------
 
-        set(GLSL_OUTPUT
-            "${SHADER_OUTPUT_DIR}/${SHADER_NAME}.${STAGE_EXT}.glsl"
+        set(GLSL_VERT_OUTPUT
+            "${SHADER_OUTPUT_DIR}/${SHADER_NAME}.vert.glsl"
         )
 
         add_custom_command(
             OUTPUT
-                "${GLSL_OUTPUT}"
+                "${GLSL_VERT_OUTPUT}"
 
             COMMAND
-                "${SPIRV_CROSS}"
-                --version 410
-                --entry "${ENTRY_POINT}"
-                "${SPV_OUTPUT}"
-                --output "${GLSL_OUTPUT}"
+                ${CMAKE_COMMAND}
+                -E
+                make_directory
+                "${SHADER_OUTPUT_DIR}"
+
+            COMMAND
+                ${CMAKE_COMMAND}
+                -E
+                copy_if_different
+                "${EXISTING_VERT_GLSL}"
+                "${GLSL_VERT_OUTPUT}"
 
             DEPENDS
-                "${SPV_OUTPUT}"
+                "${EXISTING_VERT_GLSL}"
 
             COMMENT
-                "Transpiling ${SHADER_NAME} [${ENTRY_POINT}] -> GLSL 410"
+                "Copying existing ${SHADER_NAME}.vert.glsl"
         )
 
         list(APPEND
             COMPILED_SHADERS
-            "${GLSL_OUTPUT}"
+            "${GLSL_VERT_OUTPUT}"
         )
 
-    endforeach()
+        # ----------------------------------------------------
+        # Copy existing fragment GLSL
+        # ----------------------------------------------------
+
+        set(GLSL_FRAG_OUTPUT
+            "${SHADER_OUTPUT_DIR}/${SHADER_NAME}.frag.glsl"
+        )
+
+        add_custom_command(
+            OUTPUT
+                "${GLSL_FRAG_OUTPUT}"
+
+            COMMAND
+                ${CMAKE_COMMAND}
+                -E
+                make_directory
+                "${SHADER_OUTPUT_DIR}"
+
+            COMMAND
+                ${CMAKE_COMMAND}
+                -E
+                copy_if_different
+                "${EXISTING_FRAG_GLSL}"
+                "${GLSL_FRAG_OUTPUT}"
+
+            DEPENDS
+                "${EXISTING_FRAG_GLSL}"
+
+            COMMENT
+                "Copying existing ${SHADER_NAME}.frag.glsl"
+        )
+
+        list(APPEND
+            COMPILED_SHADERS
+            "${GLSL_FRAG_OUTPUT}"
+        )
+
+    else()
+
+        # ----------------------------------------------------
+        # No existing GLSL -> generate with SPIRV-Cross
+        # ----------------------------------------------------
+
+        set(STAGES
+            vertexMain
+            fragmentMain
+        )
+
+        set(STAGE_EXTS
+            vert
+            frag
+        )
+
+        list(LENGTH STAGES STAGE_COUNT)
+        math(EXPR MAX_IDX "${STAGE_COUNT} - 1")
+
+        foreach(IDX RANGE ${MAX_IDX})
+
+            list(GET STAGES ${IDX} ENTRY_POINT)
+            list(GET STAGE_EXTS ${IDX} STAGE_EXT)
+
+            set(GLSL_OUTPUT
+                "${SHADER_OUTPUT_DIR}/${SHADER_NAME}.${STAGE_EXT}.glsl"
+            )
+
+            add_custom_command(
+                OUTPUT
+                    "${GLSL_OUTPUT}"
+
+                COMMAND
+                    ${SPIRV_CROSS}
+                    --version 410
+                    --entry "${ENTRY_POINT}"
+                    "${SPV_OUTPUT}"
+                    --output "${GLSL_OUTPUT}"
+
+                DEPENDS
+                    "${SPV_OUTPUT}"
+
+                COMMENT
+                    "Transpiling ${SHADER_NAME} [${ENTRY_POINT}] -> GLSL 410"
+            )
+
+            list(APPEND
+                COMPILED_SHADERS
+                "${GLSL_OUTPUT}"
+            )
+
+        endforeach()
+
+    endif()
 
 endforeach()
 

@@ -1,9 +1,10 @@
 #include "CCommandManager.h"
 #include "Engine/Command/CCommand.h"
-
+#include "Logger/Logger.h"
 #include <cctype>
 #include <utility>
 #include <sstream>
+// #include <iostream>
 
 static CCommandManager g_CommandManager;
 
@@ -60,7 +61,8 @@ CCommand* CCommandManager::FindCommand(
 CommandResult CCommandManager::ExecuteFromString(
     std::string commandPrompt
 )
-{
+{   
+    // Logger().warn("Trying to execute {}", commandPrompt);
     std::istringstream stream(commandPrompt);
 
     std::string commandName;
@@ -84,6 +86,7 @@ CommandResult CCommandManager::ExecuteFromString(
 }
 
 void CCommandManager::StartJob(std::string callerCmd, Job jobFunc){
+    // Logger().warn("Starting Job with callercmd: {}, id: {}",callerCmd, jobFunc.id);
     jobs[callerCmd].push_back(jobFunc);
 }
 void CCommandManager::StopJob(std::string callerCmd, int id){
@@ -101,13 +104,17 @@ void CCommandManager::StopJob(std::string callerCmd, int id){
     }
 };
 
+int nTicks = 0;
+
 void CCommandManager::TickJob()
 {
+    
     for (auto& [command, commandJobs] : jobs)
     {
         for (auto it = commandJobs.begin(); it != commandJobs.end();)
         {
             Job& job = *it;
+            // Logger().warn("(nTicks = {}) Ticking Job: id={}, shouldKeepRunning={}", ++nTicks, it->id, it->shouldKeepRunning ? "true":"false");
 
             if (job.shouldKeepRunning)
             {
@@ -116,6 +123,7 @@ void CCommandManager::TickJob()
 
             if (!job.shouldKeepRunning)
             {
+                Logger().warn("Job shouldnt keep running, destroying...");
                 it = commandJobs.erase(it);
             }
             else

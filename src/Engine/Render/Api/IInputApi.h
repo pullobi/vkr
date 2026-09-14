@@ -51,3 +51,8 @@ public:
 
 void SetGlobalInputApi(IInputApi* inputApi);
 IInputApi* GetGlobalInputApi();
+
+
+void SetGlobalMouseShouldLock(bool);
+void ToggleGlobalMouseShouldLock();
+bool GetGlobalMouseShouldLock();

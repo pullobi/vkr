@@ -403,10 +403,7 @@ GLuint COpenGLRenderer::CompileShader(
             log.data()
         );
 
-        std::cerr
-            << "OpenGL shader compilation failed:\n"
-            << log
-            << '\n';
+        Logger().error("OpenGL Shader Compilation failed on shader with contents\n{}\n://{}", source, log);
 
         glDeleteShader(shader);
 

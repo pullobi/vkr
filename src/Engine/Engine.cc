@@ -1,6 +1,7 @@
 #include "Engine.h"
 
 #include "Engine/Command/CCommandManager.h"
+#include "Engine/Command/CommandLists.h"
 #include "Engine/Command/Commands.h"
 
 #include "Engine/Render/Api/CApiTypes.h"
@@ -24,6 +25,7 @@
 
 #include <cmath>
 #include <cstdint>
+#include <sys/_pthread/_pthread_t.h>
 
 
 #define RGBA(r, g, b, a) \
@@ -217,6 +219,7 @@ Engine::Engine(EngineCreateInfo engineCreateInfo)
     // ============================================================
 
     auto& commandManager = GetCommandManager();
+    RegisterEngineCommands();
 
     if (commandManager.FindCommand("help"))
     {
@@ -232,14 +235,45 @@ Engine::Engine(EngineCreateInfo engineCreateInfo)
     }
 
     // ============================================================
+    // Command Lists
+    // ============================================================
+
+    {
+        SetBaseFolder("assets/CommandLists");
+        CommandList mainCommandList(
+            "assets/CommandLists",
+            "main.txt"
+        );
+
+        mainCommandList.Execute();
+    }
+
+    // ============================================================
     // Input
     // ============================================================
+
+    
 
     p_WindowApi->GetInputManager()->BindKey(
         Key::W,
         PressType::Pressed,
         "+forward"
     );
+
+    
+
+    p_WindowApi->GetInputManager()->BindKey(
+        Key::Escape,
+        PressType::Released,
+        "cursor_toggle"
+    );
+
+    p_WindowApi->GetInputManager()->BindKey(Key::W, PressType::Pressed, "+forward");
+    p_WindowApi->GetInputManager()->BindKey(Key:: A,PressType::Pressed, "+left");
+    p_WindowApi->GetInputManager()->BindKey(Key:: S,PressType::Pressed, "+back");
+    p_WindowApi->GetInputManager()->BindKey(Key:: D,PressType::Pressed, "+right");
+    
+    ToggleGlobalMouseShouldLock();
 
     SetGlobalWindowApi(
         p_WindowApi
@@ -256,13 +290,13 @@ void Engine::MainLoop(bool* keepRunning)
     auto& camera = GetCameraUBO();
 
     camera.SetPos({
+        3.0f,
         0.0f,
-        0.0f,
-        3.0f
+        0.0f
     });
 
     camera.SetRot({
-        -90.0f,
+        -45.0f,
         0.0f
     });
 
@@ -491,7 +525,7 @@ void Engine::MainLoop(bool* keepRunning)
             if (b_LoggerOpen)
             {
                 ImGui::Begin(
-                    "Vulkan",
+                    "Console",
                     &b_LoggerOpen,
                     ImGuiWindowFlags_MenuBar
                 );

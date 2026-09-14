@@ -35,29 +35,25 @@ void CameraUBO::SetRot(glm::vec2 newRot)
 
 void CameraUBO::UpdateView()
 {
-    float yaw = glm::radians(rot.x);
-    float pitch = glm::radians(rot.y);
-
-    glm::vec3 forward;
-    forward.x = cos(pitch) * sin(yaw);
-    forward.y = sin(pitch);
-    forward.z = -cos(pitch) * cos(yaw);
+    glm::vec3 forward = GetForwardVec();
 
     view = glm::lookAt(
         pos,
-        pos + glm::normalize(forward),
+        pos + forward,
         glm::vec3(0.0f, 1.0f, 0.0f)
     );
-
-    
-    
 }
 
 glm::vec3 CameraUBO::GetForwardVec() const
 {
-    return glm::normalize(glm::vec3(
-        glm::cos(rot.y) * glm::cos(rot.x),
-        glm::sin(rot.y),
-        glm::cos(rot.y) * glm::sin(rot.x)
-    ));
+    float yaw = glm::radians(rot.x);
+    float pitch = glm::radians(rot.y);
+
+    glm::vec3 forward;
+
+    forward.x = glm::cos(pitch) * glm::sin(yaw);
+    forward.y = glm::sin(pitch);
+    forward.z = -glm::cos(pitch) * glm::cos(yaw);
+
+    return glm::normalize(forward);
 }

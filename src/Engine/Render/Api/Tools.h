@@ -42,4 +42,3 @@ inline std::vector<char> ReadFileVk(const std::string& filename)
 
     return buffer;
 }
-
