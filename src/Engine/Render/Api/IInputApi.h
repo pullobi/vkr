@@ -14,7 +14,8 @@ public:
     virtual void BindKey(
         Key key,
         PressType type,
-        const std::string& command
+        const std::string& command,
+        uint16_t flags = 0
     ) = 0;
 
     virtual void BindMouseButton(
@@ -56,3 +57,32 @@ IInputApi* GetGlobalInputApi();
 void SetGlobalMouseShouldLock(bool);
 void ToggleGlobalMouseShouldLock();
 bool GetGlobalMouseShouldLock();
+
+
+struct Binding
+{
+    Key key;
+    PressType type;
+    uint16_t flags;
+    bool operator==(const Binding& other) const
+    {
+        return key == other.key &&
+               type == other.type;
+    }
+};
+
+struct BindingHash
+{
+    std::size_t operator()(const Binding& binding) const
+    {
+        const std::size_t keyHash =
+            std::hash<int>{}(
+                static_cast<int>(binding.key)
+            );
+        const std::size_t typeHash =
+            std::hash<int>{}(
+                static_cast<int>(binding.type)
+            );
+        return keyHash ^ (typeHash << 1);
+    }
+};

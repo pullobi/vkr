@@ -3,6 +3,7 @@
 #include "../Api/IInputApi.h"
 #include "../Api/IWindowApi.h"
 
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -17,7 +18,8 @@ public:
     void BindKey(
         Key key,
         PressType type,
-        const std::string& command
+        const std::string& command,
+        uint16_t flags = 0
     ) override;
 
     void BindMouseButton(
@@ -50,36 +52,7 @@ public:
     double GetScrollY() const override;
 
     float GetTime() override;
-private:
-    struct Binding
-    {
-        Key key;
-        PressType type;
 
-        bool operator==(const Binding& other) const
-        {
-            return key == other.key &&
-                   type == other.type;
-        }
-    };
-
-    struct BindingHash
-    {
-        std::size_t operator()(const Binding& binding) const
-        {
-            const std::size_t keyHash =
-                std::hash<int>{}(
-                    static_cast<int>(binding.key)
-                );
-
-            const std::size_t typeHash =
-                std::hash<int>{}(
-                    static_cast<int>(binding.type)
-                );
-
-            return keyHash ^ (typeHash << 1);
-        }
-    };
 
 private:
     static void KeyCallback(

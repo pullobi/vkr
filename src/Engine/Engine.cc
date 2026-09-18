@@ -15,6 +15,7 @@
 #include "Engine/Render/gui/imgui.h"
 
 #include "Engine/Render/Window/CGlfwWindow.h"
+#include "Engine/Render/Api/BindFlags.h"
 #include "Engine/Render/CVulkanRenderer.h"
 #include "Engine/Render/COpenGLRenderer.h"
 
@@ -234,19 +235,37 @@ Engine::Engine(EngineCreateInfo engineCreateInfo)
         );
     }
 
-    // ============================================================
-    // Command Lists
-    // ============================================================
 
     {
-        SetBaseFolder("assets/CommandLists");
-        CommandList mainCommandList(
-            "assets/CommandLists",
-            "main.txt"
+   
+
+        p_WindowApi->GetInputManager()->BindKey(
+            Key::Escape,
+            PressType::Released,
+            "cursor_toggle",
+            BINDFLAG_BYPASSGUI
         );
 
-        mainCommandList.Execute();
+        p_WindowApi->GetInputManager()->BindKey(Key::W, PressType::Pressed, "+forward");
+        p_WindowApi->GetInputManager()->BindKey(Key::A,PressType::Pressed, "+left");
+        p_WindowApi->GetInputManager()->BindKey(Key::S,PressType::Pressed, "+back");
+        p_WindowApi->GetInputManager()->BindKey(Key::D,PressType::Pressed, "+right");
+        p_WindowApi->GetInputManager()->BindKey(Key::Q,PressType::Pressed, "+up");
+        p_WindowApi->GetInputManager()->BindKey(Key::LeftShift,PressType::Pressed, "+down");
     }
+    // // ============================================================
+    // // Command Lists
+    // // ============================================================
+
+    // {
+    //     SetBaseFolder("assets/CommandLists");
+    //     CommandList mainCommandList(
+    //         "assets/CommandLists",
+    //         "main.sc"
+    //     );
+
+    //     mainCommandList.Execute();
+    // }
 
     // ============================================================
     // Input
@@ -254,24 +273,7 @@ Engine::Engine(EngineCreateInfo engineCreateInfo)
 
     
 
-    p_WindowApi->GetInputManager()->BindKey(
-        Key::W,
-        PressType::Pressed,
-        "+forward"
-    );
-
     
-
-    p_WindowApi->GetInputManager()->BindKey(
-        Key::Escape,
-        PressType::Released,
-        "cursor_toggle"
-    );
-
-    p_WindowApi->GetInputManager()->BindKey(Key::W, PressType::Pressed, "+forward");
-    p_WindowApi->GetInputManager()->BindKey(Key:: A,PressType::Pressed, "+left");
-    p_WindowApi->GetInputManager()->BindKey(Key:: S,PressType::Pressed, "+back");
-    p_WindowApi->GetInputManager()->BindKey(Key:: D,PressType::Pressed, "+right");
     
     ToggleGlobalMouseShouldLock();
 

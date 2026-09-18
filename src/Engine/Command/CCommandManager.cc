@@ -61,8 +61,7 @@ CCommand* CCommandManager::FindCommand(
 CommandResult CCommandManager::ExecuteFromString(
     std::string commandPrompt
 )
-{   
-    // Logger().warn("Trying to execute {}", commandPrompt);
+{
     std::istringstream stream(commandPrompt);
 
     std::string commandName;
@@ -77,6 +76,8 @@ CommandResult CCommandManager::ExecuteFromString(
         return CommandResult::NoCommand;
 
     std::vector<std::string> args;
+    args.push_back(commandName);
+
     std::string arg;
 
     while (stream >> arg)

@@ -120,7 +120,7 @@ enum class PressType : uint8_t
     Released
 };
 
-inline PressType GetPressTypeFromString(std::string& press){
+inline PressType GetPressTypeFromString(std::string press){
 
     static const std::unordered_map<std::string, PressType> pressMap = {
         {"pressed", PressType::Pressed },

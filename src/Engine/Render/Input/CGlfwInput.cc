@@ -6,8 +6,10 @@
 #include "Engine/Render/Types/CRenderTypes.h"
 #include "Engine/Render/gui/imgui_impl_glfw.h"
 #include "Engine/const.h"
-#include "Logger/Logger.h"
+
+#include "Engine/Render/Api/BindFlags.h"
 #include <cmath>
+#include <cstdint>
 
 
 // Gets used by Commands implementation to lock/unlock cursor
@@ -89,7 +91,8 @@ void GlfwInputApi::Update()
 void GlfwInputApi::BindKey(
     Key key,
     PressType type,
-    const std::string& command
+    const std::string& command,
+    uint16_t flags
 )
 {
     if (type == PressType::Released){
@@ -184,8 +187,19 @@ void GlfwInputApi::ExecuteKeyBinding(
         type
     };
 
+    // TODO: fix keys with flags not being detected while mouse isn't locked
+    
     const auto it =
         m_KeyBindings.find(binding);
+
+    if (it == m_KeyBindings.end())
+        return;
+
+    if (!mouseLocked && !(it->first.flags & BINDFLAG_BYPASSGUI)){
+
+        Logger().info("our mouse isn't locked and the binding's flags doesn't have BINDFLAG_BYPASSGUI, let's not execute.");
+        return;
+    }
 
     if (it == m_KeyBindings.end())
         return;
@@ -195,6 +209,7 @@ void GlfwInputApi::ExecuteKeyBinding(
         it->second
     );
 }
+
 void GlfwInputApi::ExecuteReleaseCommand(Key key)
 {
     Binding binding{
@@ -218,11 +233,17 @@ void GlfwInputApi::ExecuteReleaseCommand(Key key)
         return;
     }
 
+    // TODO: fix keys with flags not being detected while mouse isn't locked
+
     const std::string& command = it->second;
 
     if (command.empty())
     {
         // Logger().error("no such command");
+        return;
+    }
+    if (!mouseLocked && !(it->first.flags & BINDFLAG_BYPASSGUI)){
+        Logger().info("our mouse isn't locked and the binding's flags doesn't have BINDFLAG_BYPASSGUI, let's not execute.");
         return;
     }
 
